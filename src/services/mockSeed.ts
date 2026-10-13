@@ -28,7 +28,7 @@ export function rng(seed: number) {
   };
 }
 
-export const pick = <T>(r: () => number, arr: readonly T[]): T => arr[Math.floor(r() * arr.length)];
+export const pick = <T>(r: () => number, arr: readonly T[]): T => arr[Math.floor(r() * arr.length)]!;
 export const int = (r: () => number, min: number, max: number) => Math.floor(r() * (max - min + 1)) + min;
 
 export function addDays(iso: string, days: number): string {
@@ -61,13 +61,15 @@ let studentRoster: RosterStudent[] | null = null;
 export function getStudentRoster(): RosterStudent[] {
   if (studentRoster) return studentRoster;
   const r = rng(42);
-  studentRoster = STUDENT_NAMES.map(([name, gender], i) => {
-    const department = i === 0 ? "Computer Engineering" : DEPARTMENTS[i % DEPARTMENTS.length].name;
-    const year = i === 0 ? "TE" : YEARS[i % 4];
-    const division = DIVISIONS[i % 3];
-    const code = DEPARTMENTS.find((d) => d.name === department)!.code;
-    const first = name.split(" ")[0].toLowerCase();
-    const last = name.split(" ")[1].toLowerCase();
+  const roster: RosterStudent[] = STUDENT_NAMES.map(([name, gender], i) => {
+    const dept = DEPARTMENTS[i % DEPARTMENTS.length];
+    const department = i === 0 ? "Computer Engineering" : (dept?.name ?? "Computer Engineering");
+    const year = (i === 0 ? "TE" : (YEARS[i % 4] ?? "TE")) as (typeof YEARS)[number];
+    const division = DIVISIONS[i % 3] ?? "A";
+    const code = DEPARTMENTS.find((d) => d.name === department)?.code ?? "CE";
+    const parts = name.split(" ");
+    const first = parts[0]?.toLowerCase() ?? "student";
+    const last = parts[1]?.toLowerCase() ?? "pict";
     return {
       id: `STU2023${String(i + 1).padStart(3, "0")}`,
       name,
@@ -80,7 +82,8 @@ export function getStudentRoster(): RosterStudent[] {
       phone: `9${int(r, 100000000, 999999999)}`,
     };
   });
-  return studentRoster;
+  studentRoster = roster;
+  return roster;
 }
 
 const FACULTY_NAMES = [
@@ -107,18 +110,20 @@ let facultyRoster: RosterFaculty[] | null = null;
 export function getFacultyRoster(): RosterFaculty[] {
   if (facultyRoster) return facultyRoster;
   const r = rng(7);
-  facultyRoster = FACULTY_NAMES.map(([name, designation], i) => {
+  const roster: RosterFaculty[] = FACULTY_NAMES.map(([name, designation], i) => {
     const clean = name.replace(/^(Dr\.|Prof\.)\s/, "").toLowerCase().split(" ");
+    const dept = DEPARTMENTS[i % DEPARTMENTS.length];
     return {
       id: `FAC${String(i + 1).padStart(3, "0")}`,
       name,
       designation,
-      department: DEPARTMENTS[i % DEPARTMENTS.length].name,
-      email: `${clean[0]}.${clean[1]}@pict.edu`,
+      department: dept?.name ?? "Computer Engineering",
+      email: `${clean[0] ?? "faculty"}.${clean[1] ?? "staff"}@pict.edu`,
       phone: `98${int(r, 10000000, 99999999)}`,
     };
   });
-  return facultyRoster;
+  facultyRoster = roster;
+  return roster;
 }
 
 export const SUBJECTS = [

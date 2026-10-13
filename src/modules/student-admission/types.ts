@@ -46,7 +46,7 @@ export interface Application {
   status: ApplicationStatus;
   category: string;
   documents: ApplicationDocument[];
-  remarks?: string;
+  remarks?: string | undefined;
   history: { date: string; action: string; by: string }[];
 }
 

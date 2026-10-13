@@ -81,11 +81,13 @@ export function createMockCollection<T extends Entity>(
     }
     return id;
   };
-  const set = (id: string, patch: Partial<T>) => {
-    const idx = db().findIndex((r) => r.id === id);
+  const set = (id: string, patch: Partial<T>): T => {
+    const list = db();
+    const idx = list.findIndex((r) => r.id === id);
     if (idx < 0) throw new HttpError("Record not found", 404);
-    db()[idx] = { ...db()[idx], ...patch, id };
-    return db()[idx];
+    const updated = { ...list[idx], ...patch, id } as T;
+    list[idx] = updated;
+    return updated;
   };
   const insert = (input: Omit<T, "id"> & { id?: string }) => {
     const row = { ...input, id: input.id ?? nextId() } as T;

@@ -41,7 +41,7 @@ export function ChartCard({ title, description, type, data, xKey, series, loadin
           <ResponsiveContainer width="100%" height="100%">
             {type === "pie" ? (
               <PieChart>
-                <Pie data={data} dataKey={series[0].key} nameKey={xKey} innerRadius="50%" outerRadius="80%" paddingAngle={2}>
+                <Pie data={data} dataKey={series[0]?.key ?? "value"} nameKey={xKey} innerRadius="50%" outerRadius="80%" paddingAngle={2}>
                   {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
                 {tooltip}

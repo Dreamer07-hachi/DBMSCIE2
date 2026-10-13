@@ -1,7 +1,19 @@
 import { Link } from "@tanstack/react-router";
 import {
-  Activity, BedDouble, BookOpen, Building2, CalendarClock, CalendarDays, GraduationCap, IndianRupee, Library, UserPlus, Users,
+  Activity,
+  BedDouble,
+  BookOpen,
+  Building2,
+  CalendarClock,
+  CalendarDays,
+  GraduationCap,
+  IndianRupee,
+  Info,
+  Library,
+  UserPlus,
+  Users,
 } from "lucide-react";
+import { toast } from "sonner";
 import { ChartCard } from "@/components/ChartCard";
 import { KpiCard, KpiGrid } from "@/components/KpiCard";
 import { PageHeader, Section } from "@/components/PageHeader";
@@ -16,7 +28,12 @@ import { formatDate, formatINR, formatINRCompact, formatNumber } from "@/utils/f
 
 export function DashboardPage() {
   const { isStudent, user } = usePermissions();
-  return isStudent && user?.studentId ? <StudentDashboard studentId={user.studentId} /> : <AdminDashboard />;
+  const studentId = user?.studentId || (isStudent ? "STU2023001" : undefined);
+  return isStudent && studentId ? (
+    <StudentDashboard studentId={studentId} />
+  ) : (
+    <AdminDashboard />
+  );
 }
 
 function AdminDashboard() {
@@ -27,7 +44,10 @@ function AdminDashboard() {
   const d = q.data;
   return (
     <div className="space-y-6">
-      <PageHeader title={`Welcome, ${user?.name.split(" ").slice(0, 2).join(" ")}`} description="College-wide overview for academic year 2026–27" />
+      <PageHeader
+        title={`Welcome, ${user?.name ? user.name.split(" ").slice(0, 2).join(" ") : "Administrator"}`}
+        description="College-wide overview for academic year 2026–27"
+      />
       <KpiGrid>
         <KpiCard label="Total Students" value={formatNumber(d.kpis.totalStudents)} icon={GraduationCap} />
         <KpiCard label="New Admissions" value={formatNumber(d.kpis.newAdmissions)} icon={UserPlus} accent="teal" hint="AY 2026–27" />
@@ -75,44 +95,123 @@ function AdminDashboard() {
 }
 
 function StudentDashboard({ studentId }: { studentId: string }) {
+  const { user } = usePermissions();
   const q = useServiceQuery(["dashboard", "student", studentId], () => dashboardService.getStudentDashboard(studentId));
+
   if (q.isLoading) return <LoadingSkeleton variant="page" />;
   if (q.isError || !q.data) return <ErrorState message={getErrorMessage(q.error)} onRetry={() => q.refetch()} />;
+
   const d = q.data;
+  // Use real authenticated user identity
+  const currentStudentName = user?.name || d.name;
+  const currentStudentId = user?.studentId || studentId;
+  const currentProgram = user?.department
+    ? `B.E. ${user.department} — TE, Div A`
+    : d.program;
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Hello, ${d.name.split(" ")[0]}`}
-        description={`${d.studentId} · ${d.program}`}
-        actions={<Button asChild variant="outline" size="sm"><Link to="/students/$id" params={{ id: studentId }}>View my profile</Link></Button>}
+        title={`Hello, ${currentStudentName.split(" ")[0]}`}
+        description={`${currentStudentId} · ${currentProgram}`}
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link to="/students/$id" params={{ id: currentStudentId }}>
+              View my profile
+            </Link>
+          </Button>
+        }
       />
+
+      {/* Transparent notice identifying that metrics are demo data until live ERP modules sync */}
+      <div className="flex items-start gap-2.5 rounded-lg border border-amber/30 bg-amber/10 p-3 text-xs text-amber-900 dark:text-amber-200">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
+        <div className="space-y-0.5">
+          <p className="font-semibold text-amber-800 dark:text-amber-300">
+            Authenticated Profile Connected · Academic Modules Demo Notice
+          </p>
+          <p className="text-amber-800/90 dark:text-amber-200/90">
+            Identity for <strong>{currentStudentName}</strong> ({currentStudentId}) is loaded from your active session.
+            The academic metrics below (attendance, CGPA, fees, books, and hostel records) are currently demo records pending connection to live departmental database tables.
+          </p>
+        </div>
+      </div>
+
       <KpiGrid cols={5}>
-        <KpiCard label="My Attendance" value={`${d.attendancePct}%`} icon={Activity} accent="success" />
-        <KpiCard label="CGPA" value={d.cgpa.toFixed(2)} icon={GraduationCap} />
-        <KpiCard label="Fees Due" value={formatINR(d.feesDue)} icon={IndianRupee} accent="amber" />
-        <KpiCard label="Books Issued" value={d.booksIssued} icon={BookOpen} accent="teal" />
-        <KpiCard label="Hostel" value={<span className="text-base">{d.hostelRoom}</span>} icon={BedDouble} />
+        <KpiCard label="My Attendance" value={`${d.attendancePct}%`} icon={Activity} accent="success" hint="Demo record" />
+        <KpiCard label="CGPA" value={d.cgpa.toFixed(2)} icon={GraduationCap} hint="Demo record" />
+        <KpiCard label="Fees Due" value={formatINR(d.feesDue)} icon={IndianRupee} accent="amber" hint="Demo record" />
+        <KpiCard label="Books Issued" value={d.booksIssued} icon={BookOpen} accent="teal" hint="Demo record" />
+        <KpiCard label="Hostel" value={<span className="text-base">{d.hostelRoom}</span>} icon={BedDouble} hint="Demo record" />
       </KpiGrid>
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <ChartCard title="Attendance by subject (%)" type="bar" data={d.attendanceBySubject} xKey="subject" series={[{ key: "pct", label: "Attendance %" }]} />
+          <ChartCard
+            title="Attendance by subject (%)"
+            type="bar"
+            data={d.attendanceBySubject}
+            xKey="subject"
+            series={[{ key: "pct", label: "Attendance %" }]}
+          />
         </div>
         <Section title="Upcoming">
           <ul className="divide-y">
             {d.upcoming.map((u) => (
               <li key={u.id} className="flex items-start gap-3 px-4 py-3">
                 <CalendarDays className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                <div><p className="text-sm">{u.title}</p><p className="text-xs text-muted-foreground">{formatDate(u.date)} · {u.category}</p></div>
+                <div>
+                  <p className="text-sm">{u.title}</p>
+                  <p className="text-xs text-muted-foreground">{formatDate(u.date)} · {u.category}</p>
+                </div>
               </li>
             ))}
           </ul>
         </Section>
       </div>
+
+      {/* Quick Action Navigation / Placeholders */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Button asChild variant="outline"><Link to="/academic/timetable">My timetable</Link></Button>
-        <Button asChild variant="outline"><Link to="/examinations/results">My results</Link></Button>
-        <Button asChild variant="outline"><Link to="/finance/payments">My fee receipts</Link></Button>
-        <Button asChild variant="outline"><Link to="/student-services">Raise a request</Link></Button>
+        <Button
+          variant="outline"
+          onClick={() =>
+            toast.info("Academic Timetable", {
+              description: "Full semester timetable will sync with the Academic & Courses module.",
+            })
+          }
+        >
+          My timetable
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() =>
+            toast.info("Examination Results", {
+              description: "Mid-sem and End-sem scorecards will sync with Examinations module.",
+            })
+          }
+        >
+          My results
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() =>
+            toast.info("Fees & Payments", {
+              description: "Tuition and hostel fee receipts will sync with the Fees & Finance module.",
+            })
+          }
+        >
+          My fee receipts
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() =>
+            toast.info("Student Services", {
+              description: "Hostel allocation and bonafide request portal will be enabled here.",
+            })
+          }
+        >
+          Raise a request
+        </Button>
       </div>
     </div>
   );
