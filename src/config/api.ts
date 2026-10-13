@@ -12,11 +12,14 @@ export interface ModuleApiConfig {
 }
 
 export const API_BASE_URL: string =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
+  (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? "";
+
+const useMockAuth = import.meta.env["VITE_USE_MOCK_AUTH"] === "true";
+const useMockDashboard = import.meta.env["VITE_USE_MOCK_DASHBOARD"] === "true";
 
 export const apiConfig = {
-  auth: { baseUrl: "/api/auth", useMock: true },
-  dashboard: { baseUrl: "/api/dashboard", useMock: true },
+  auth: { baseUrl: "/api/auth", useMock: useMockAuth },
+  dashboard: { baseUrl: "/api/dashboard", useMock: useMockDashboard },
   search: { baseUrl: "/api/search", useMock: true },
   notifications: { baseUrl: "/api/notifications", useMock: true },
   students: { baseUrl: "/api/students", useMock: true },

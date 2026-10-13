@@ -6,8 +6,8 @@ export class HttpError extends Error implements ApiError {
   code?: string;
   constructor(message: string, status?: number, code?: string) {
     super(message);
-    this.status = status;
-    this.code = code;
+    if (status !== undefined) this.status = status;
+    if (code !== undefined) this.code = code;
   }
 }
 
@@ -28,6 +28,7 @@ function authHeader(): Record<string, string> {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
+    credentials: "include",
     headers: { "Content-Type": "application/json", ...authHeader(), ...(init?.headers ?? {}) },
   });
   if (!res.ok) {
@@ -37,6 +38,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       if (body.message) message = body.message;
     } catch {
       /* non-JSON error body */
+    }
+    // Dispatch session-expired event on 401 when not on the login page
+    if (res.status === 401 && typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+      window.dispatchEvent(new CustomEvent("pict:session-expired"));
     }
     throw new HttpError(message, res.status);
   }

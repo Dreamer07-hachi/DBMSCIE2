@@ -18,8 +18,15 @@ export interface DashboardSummary {
 }
 
 export interface StudentDashboard {
-  name: string; studentId: string; program: string; attendancePct: number; cgpa: number;
-  feesDue: number; booksIssued: number; hostelRoom: string;
+  name: string;
+  studentId: string;
+  program: string;
+  attendancePct: number;
+  cgpa: number;
+  feesDue: number;
+  booksIssued: number;
+  hostelRoom: string;
+  isDemoMetrics?: boolean;
   attendanceBySubject: ChartDatum[];
   upcoming: { id: string; title: string; date: string; category: string }[];
 }
@@ -35,10 +42,10 @@ const mockDashboardService: DashboardService = {
     return {
       kpis: { totalStudents: 4218, newAdmissions: 1086, facultyMembers: 236, attendancePct: 82.4, pendingFees: 18450000, upcomingExams: 14, hostelOccupancyPct: 87, booksIssued: 1342 },
       enrollmentTrend: ["2021", "2022", "2023", "2024", "2025", "2026"].map((y, i) => ({ year: y, students: 3420 + i * 160 + (i % 2) * 45 })),
-      departmentDistribution: DEPARTMENTS.map((d, i) => ({ department: d.code, students: [1180, 860, 720, 540, 480, 438][i] })),
-      attendanceOverview: ["Jun", "Jul", "Aug", "Sep", "Oct"].map((m, i) => ({ month: m, attendance: [78, 84, 81, 85, 82][i] })),
-      feeCollection: ["Jun", "Jul", "Aug", "Sep", "Oct"].map((m, i) => ({ month: m, collected: [9200000, 14100000, 6800000, 4300000, 2100000][i], pending: [3200000, 2900000, 2400000, 2050000, 1845000][i] })),
-      examPerformance: ["O", "A+", "A", "B+", "B", "C", "F"].map((g, i) => ({ grade: g, students: [210, 540, 860, 920, 610, 330, 140][i] })),
+      departmentDistribution: DEPARTMENTS.map((d, i) => ({ department: d.code, students: [1180, 860, 720, 540, 480, 438][i] ?? 0 })),
+      attendanceOverview: ["Jun", "Jul", "Aug", "Sep", "Oct"].map((m, i) => ({ month: m, attendance: [78, 84, 81, 85, 82][i] ?? 0 })),
+      feeCollection: ["Jun", "Jul", "Aug", "Sep", "Oct"].map((m, i) => ({ month: m, collected: [9200000, 14100000, 6800000, 4300000, 2100000][i] ?? 0, pending: [3200000, 2900000, 2400000, 2050000, 1845000][i] ?? 0 })),
+      examPerformance: ["O", "A+", "A", "B+", "B", "C", "F"].map((g, i) => ({ grade: g, students: [210, 540, 860, 920, 610, 330, 140][i] ?? 0 })),
       activity: [
         { id: "a1", type: "admission", text: "New student admitted — Sneha Patil (SE IT)", time: "10 min ago" },
         { id: "a2", type: "fee", text: "Fee payment received — ₹45,000 from Rohan Deshmukh", time: "32 min ago" },
@@ -61,6 +68,7 @@ const mockDashboardService: DashboardService = {
     return {
       name: "Aarav Kulkarni", studentId, program: "B.E. Computer Engineering — TE, Div A",
       attendancePct: 84.6, cgpa: 8.72, feesDue: 45000, booksIssued: 2, hostelRoom: "Saraswati Boys Hostel · S-101",
+      isDemoMetrics: true,
       attendanceBySubject: [
         { subject: "DBMS", pct: 88 }, { subject: "TOC", pct: 79 }, { subject: "CN", pct: 86 }, { subject: "SPOS", pct: 72 }, { subject: "HCI", pct: 92 },
       ],

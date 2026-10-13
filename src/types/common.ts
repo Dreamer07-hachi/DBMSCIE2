@@ -8,11 +8,11 @@ export type SortDir = "asc" | "desc";
 export type Filters = Record<string, string | undefined>;
 
 export interface ListParams {
-  search?: string;
-  filters?: Filters;
-  sort?: { key: string; dir: SortDir };
-  page?: number;
-  pageSize?: number;
+  search?: string | undefined;
+  filters?: Filters | undefined;
+  sort?: { key: string; dir: SortDir } | undefined;
+  page?: number | undefined;
+  pageSize?: number | undefined;
 }
 
 export interface PaginatedResponse<T> {
@@ -25,8 +25,8 @@ export interface PaginatedResponse<T> {
 
 export interface ApiError {
   message: string;
-  status?: number;
-  code?: string;
+  status?: number | undefined;
+  code?: string | undefined;
 }
 
 export interface Entity {

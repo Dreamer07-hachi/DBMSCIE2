@@ -33,10 +33,15 @@ function GlobalSearch() {
   const go = (r: SearchResult) => {
     setOpen(false);
     setQ("");
-    if (r.kind === "Student" && can("student-admission")) navigate({ to: "/students/$id", params: { id: r.id } });
-    else if (r.kind === "Faculty" && can("faculty-hr")) navigate({ to: "/faculty/$id", params: { id: r.id } });
-    else if (r.kind === "Course" && can("academic")) navigate({ to: "/academic/courses" });
-    else toast.error("Access Denied: your role cannot open this record.");
+    if (r.kind === "Student" && can("student-admission")) {
+      navigate({ to: "/students/$id", params: { id: r.id } });
+    } else if (r.kind === "Faculty" && can("faculty-hr")) {
+      toast.info(`Faculty record: ${r.label}`, { description: "HR and Faculty details will open here." });
+    } else if (r.kind === "Course" && can("academic")) {
+      toast.info(`Course: ${r.label}`, { description: "Academic curriculum details will open here." });
+    } else {
+      toast.error("Access Denied: your role cannot open this record.");
+    }
   };
 
   return (

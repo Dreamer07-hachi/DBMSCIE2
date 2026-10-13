@@ -21,7 +21,7 @@ export function seedStudents(): Student[] {
     year: s.year,
     division: s.division,
     rollNo: s.rollNo,
-    admissionYear: YEAR_TO_ADMIT[s.year],
+    admissionYear: YEAR_TO_ADMIT[s.year] ?? 2024,
     status: i === 7 ? "Inactive" : i === 15 ? "Suspended" : "Active",
     address: `${int(r, 1, 220)}, ${pick(r, ["Shivaji Nagar", "Kothrud", "Baner", "Hadapsar", "Katraj", "Aundh"])}`,
     city: pick(r, CITIES),
@@ -45,16 +45,18 @@ const DOCS = ["10th Marksheet", "12th Marksheet", "MHT-CET Scorecard", "Leaving 
 export function seedApplications(): Application[] {
   const r = rng(202);
   return APPLICANTS.map((name, i) => {
-    const status = (["Pending", "Under Review", "Approved", "Rejected", "Pending", "Under Review"] as const)[i % 6];
+    const statuses = ["Pending", "Under Review", "Approved", "Rejected", "Pending", "Under Review"] as const;
+    const status = statuses[i % 6]!;
     const appliedOn = addDays(REF_DATE, -int(r, 3, 60));
-    const first = name.split(" ")[0].toLowerCase();
+    const first = (name.split(" ")[0] ?? "applicant").toLowerCase();
+    const dept = DEPARTMENTS[i % DEPARTMENTS.length];
     return {
       id: `APP26${String(i + 1).padStart(3, "0")}`,
       applicantName: name,
       email: `${first}${int(r, 10, 99)}@gmail.com`,
       phone: `9${int(r, 100000000, 999999999)}`,
       program: "B.E.",
-      department: DEPARTMENTS[i % DEPARTMENTS.length].name,
+      department: dept?.name ?? "Computer Engineering",
       entranceExam: i % 3 === 0 ? "JEE Main" : "MHT-CET",
       score: int(r, 8500, 9970) / 100,
       appliedOn,

@@ -32,7 +32,9 @@ const ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight"
 const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
 
 function twoDigits(n: number): string {
-  return n < 20 ? ONES[n] : `${TENS[Math.floor(n / 10)]}${n % 10 ? ` ${ONES[n % 10]}` : ""}`;
+  return n < 20
+    ? (ONES[n] ?? "")
+    : `${TENS[Math.floor(n / 10)] ?? ""}${n % 10 ? ` ${ONES[n % 10] ?? ""}` : ""}`;
 }
 
 /** Indian numbering system: Crore, Lakh, Thousand, Hundred */

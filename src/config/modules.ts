@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import type { ModuleKey } from "./permissions";
 
-export type AppPath = NonNullable<LinkProps["to"]>;
+export type AppPath = NonNullable<LinkProps["to"]> | (string & {});
 
 export interface SubNavTab {
   label: string;

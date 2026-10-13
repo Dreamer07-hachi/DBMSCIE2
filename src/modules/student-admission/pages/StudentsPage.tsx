@@ -29,8 +29,8 @@ export function StudentsPage() {
         <KpiCard label="Rejected" value={adm.data?.rejected ?? "—"} icon={ThumbsDown} accent="danger" loading={adm.isLoading} />
       </KpiGrid>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ChartCard title="Students by department" type="bar" data={stats.data?.byDepartment} xKey="department" series={[{ key: "students", label: "Students" }]} loading={stats.isLoading} error={stats.isError} onRetry={() => stats.refetch()} />
-        <ChartCard title="Students by year" type="pie" data={stats.data?.byYear} xKey="year" series={[{ key: "students", label: "Students" }]} loading={stats.isLoading} error={stats.isError} onRetry={() => stats.refetch()} />
+        <ChartCard title="Students by department" type="bar" data={stats.data?.byDepartment ?? []} xKey="department" series={[{ key: "students", label: "Students" }]} loading={stats.isLoading} error={stats.isError} onRetry={() => stats.refetch()} />
+        <ChartCard title="Students by year" type="pie" data={stats.data?.byYear ?? []} xKey="year" series={[{ key: "students", label: "Students" }]} loading={stats.isLoading} error={stats.isError} onRetry={() => stats.refetch()} />
       </div>
       <CrudSection<Student>
         queryKey="students"
