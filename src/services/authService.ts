@@ -26,6 +26,7 @@ export interface AuthService {
   validateSession(): Promise<Session | null>;
   subscribe(cb: () => void): () => void;
   requestPasswordReset(email: string): Promise<void>;
+  register(name: string, email: string, password: string, role: Role): Promise<void>;
 }
 
 const KEY = "pict-erp-session";
@@ -45,6 +46,9 @@ export const DEMO_USERS: SessionUser[] = [
 
 const listeners = new Set<() => void>();
 let cached: Session | null | undefined;
+
+/** In-memory mock user store for registrations during the session. */
+const mockRegistered = new Map<string, { user: SessionUser; password: string }>();
 
 function read(): Session | null {
   if (typeof window === "undefined") return null;
@@ -74,45 +78,104 @@ if (typeof window !== "undefined") {
   });
 }
 
+/* ─────────────────────── Mock service (no backend required) ── */
 const mockAuthService: AuthService = {
   async login(identifier, password, remember) {
     await mockDelay();
     const id = identifier.trim().toLowerCase();
-    const user = DEMO_USERS.find((u) => u.email === id || u.email.split("@")[0] === id || u.studentId?.toLowerCase() === id);
-    if (!user || (password !== DEMO_PASSWORD && password !== "pict@Student2026" && password !== "pict@Admin2026" && password !== "pict@Faculty2026")) {
-      throw new HttpError(`Invalid credentials. Check email/student ID and password.`, 401);
+
+    // Check registered-in-session users first
+    const regEntry = mockRegistered.get(id);
+    if (regEntry && regEntry.password === password) {
+      const session: Session = { user: regEntry.user, token: `mock-${regEntry.user.id}` };
+      persist(session, remember);
+      return session;
     }
-    const session = { user, token: `mock-${user.id}` };
+
+    // Check seeded demo users
+    const user = DEMO_USERS.find(
+      (u) =>
+        u.email.toLowerCase() === id ||
+        u.email.split("@")[0].toLowerCase() === id ||
+        u.studentId?.toLowerCase() === id
+    );
+
+    const validPasswords = [DEMO_PASSWORD, "pict@Student2026", "pict@Admin2026", "pict@Faculty2026"];
+    if (!user || !validPasswords.includes(password)) {
+      throw new HttpError("Invalid email or password. Please try again.", 401);
+    }
+
+    const session: Session = { user, token: `mock-${user.id}` };
     persist(session, remember);
     return session;
   },
+
   async loginAs(role) {
     const user = DEMO_USERS.find((u) => u.role === role) ?? DEMO_USERS[0]!;
-    const session = { user, token: `mock-${user.id}` };
+    const session: Session = { user, token: `mock-${user.id}` };
     persist(session, true);
     return session;
   },
+
   async logout() {
     persist(null);
   },
+
   getSession: read,
+
   async validateSession() {
     return read();
   },
+
   subscribe(cb) {
     listeners.add(cb);
     return () => listeners.delete(cb);
   },
-  async requestPasswordReset() {
+
+  async requestPasswordReset(_email) {
     await mockDelay();
+    // Simulate email dispatch in mock mode
+  },
+
+  async register(name, email, password, role) {
+    await mockDelay();
+    const key = email.trim().toLowerCase();
+
+    // Check for duplicates in demo users
+    const existing = DEMO_USERS.find((u) => u.email.toLowerCase() === key);
+    if (existing || mockRegistered.has(key)) {
+      throw new HttpError(
+        "An account with this email already exists. Please log in instead.",
+        409
+      );
+    }
+
+    // Admin role cannot be registered publicly
+    if (role === "super_admin") {
+      throw new HttpError(
+        "Administrator accounts cannot be created through public registration.",
+        403
+      );
+    }
+
+    const newUser: SessionUser = {
+      id: `U-${Date.now()}`,
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      role,
+      department: role === "student" ? "Computer Engineering" : "Computer Engineering",
+    };
+
+    mockRegistered.set(key, { user: newUser, password });
   },
 };
 
+/* ─────────────────────── REST service (real backend) ── */
 const restAuthService: AuthService = {
   ...mockAuthService,
+
   async login(identifier, password, remember) {
     try {
-      // POST /api/auth/login → { user, token }
       const res = await apiClient.post<Session>(`${apiConfig.auth.baseUrl}/login`, {
         identifier,
         password,
@@ -121,14 +184,25 @@ const restAuthService: AuthService = {
       persist(res, remember);
       return res;
     } catch (err) {
-      if (err instanceof HttpError) throw err;
-      throw new HttpError("Could not reach authentication server. Please check backend connection.", 503);
+      if (err instanceof HttpError) {
+        // Re-map generic request-failed messages to user-friendly text
+        if (err.status === 401 || err.status === 400) {
+          throw new HttpError("Invalid email or password. Please try again.", err.status);
+        }
+        throw err;
+      }
+      throw new HttpError(
+        "Could not reach the authentication server. Please check your connection or try again later.",
+        503
+      );
     }
   },
+
   async loginAs(role) {
     const user = DEMO_USERS.find((u) => u.role === role) ?? DEMO_USERS[0]!;
     return this.login(user.email, DEMO_PASSWORD, true);
   },
+
   async logout() {
     try {
       await apiClient.post(`${apiConfig.auth.baseUrl}/logout`);
@@ -137,6 +211,7 @@ const restAuthService: AuthService = {
     }
     persist(null);
   },
+
   async validateSession() {
     const current = read();
     if (!current) return null;
@@ -153,9 +228,34 @@ const restAuthService: AuthService = {
       return null;
     }
   },
+
   async requestPasswordReset(email) {
-    // POST /api/auth/forgot-password
     await apiClient.post(`${apiConfig.auth.baseUrl}/forgot-password`, { email });
+  },
+
+  async register(name, email, password, role) {
+    try {
+      await apiClient.post(`${apiConfig.auth.baseUrl}/register`, {
+        name,
+        email,
+        password,
+        role,
+      });
+    } catch (err) {
+      if (err instanceof HttpError) {
+        if (err.status === 409) {
+          throw new HttpError(
+            "An account with this email already exists. Please log in instead.",
+            409
+          );
+        }
+        throw err;
+      }
+      throw new HttpError(
+        "Could not reach the server. Please try again later.",
+        503
+      );
+    }
   },
 };
 

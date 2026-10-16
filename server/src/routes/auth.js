@@ -92,6 +92,24 @@ router.post('/login', async (req, res) => {
       }
     }
 
+    // 2b. Also check in-memory registrations (users who registered while MySQL was down)
+    if (!userRecord && typeof memRegistrations !== 'undefined') {
+      const memUser = memRegistrations.get(idLower);
+      if (memUser) {
+        userRecord = {
+          id: memUser.id,
+          name: memUser.name,
+          email: memUser.email,
+          studentId: memUser.student_id || undefined,
+          facultyId: memUser.faculty_id || undefined,
+          password_hash: memUser.password_hash,
+          role: memUser.role,
+          department: memUser.department,
+          is_active: memUser.is_active,
+        };
+      }
+    }
+
     if (!userRecord) {
       return res.status(401).json({
         message: 'Invalid email/student ID or password.',
@@ -197,4 +215,121 @@ router.post('/forgot-password', async (req, res) => {
   });
 });
 
+/* ─────────────────────────────────────────────────────────────────
+ * POST /api/auth/register
+ * Allows student and faculty self-registration.
+ * Admin accounts CANNOT be created via this endpoint.
+ * ───────────────────────────────────────────────────────────────── */
+const registerSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  email: z.string().trim().email().max(150),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(100)
+    .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
+    .regex(/[0-9]/, 'Must contain at least one number'),
+  role: z.enum(['student', 'faculty']),
+});
+
+/** In-memory fallback registrations when MySQL is unavailable */
+const memRegistrations = new Map();
+
+router.post('/register', async (req, res) => {
+  const parseResult = registerSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const first = parseResult.error.issues[0];
+    return res.status(400).json({
+      message: first ? first.message : 'Invalid registration data',
+      errors: parseResult.error.flatten().fieldErrors,
+    });
+  }
+
+  const { name, email, password, role } = parseResult.data;
+  const emailLower = email.trim().toLowerCase();
+
+  try {
+    // ── 1. MySQL path ──────────────────────────────────────────
+    if (pool) {
+      try {
+        // Duplicate check
+        const [existing] = await pool.execute(
+          'SELECT id FROM users WHERE LOWER(email) = ?',
+          [emailLower]
+        );
+        if (existing.length > 0) {
+          return res.status(409).json({
+            message: 'An account with this email already exists. Please log in instead.',
+          });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(password, salt);
+        const id = `U-${Date.now()}`;
+
+        await pool.execute(
+          `INSERT INTO users (id, name, email, password_hash, role, department, is_active)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            id,
+            name.trim(),
+            emailLower,
+            passwordHash,
+            role,
+            role === 'faculty' ? 'Computer Engineering' : 'Computer Engineering',
+            // Faculty accounts start inactive (pending admin approval)
+            role === 'faculty' ? false : true,
+          ]
+        );
+
+        const message =
+          role === 'faculty'
+            ? 'Account created! Pending administrator approval before you can sign in.'
+            : 'Account created successfully! You can now log in.';
+
+        return res.status(201).json({ message });
+      } catch (dbErr) {
+        if (dbErr.code === 'ER_DUP_ENTRY') {
+          return res.status(409).json({
+            message: 'An account with this email already exists. Please log in instead.',
+          });
+        }
+        console.warn('⚠️ MySQL registration failed; using in-memory fallback:', dbErr.message);
+      }
+    }
+
+    // ── 2. In-memory fallback ──────────────────────────────────
+    if (memRegistrations.has(emailLower) || fallbackUserMap.has(emailLower)) {
+      return res.status(409).json({
+        message: 'An account with this email already exists. Please log in instead.',
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
+    memRegistrations.set(emailLower, {
+      id: `U-${Date.now()}`,
+      name: name.trim(),
+      email: emailLower,
+      password_hash: passwordHash,
+      role,
+      department: 'Computer Engineering',
+      is_active: role !== 'faculty', // faculty pending approval
+    });
+
+    const message =
+      role === 'faculty'
+        ? 'Account created! Pending administrator approval before you can sign in.'
+        : 'Account created successfully! You can now log in.';
+
+    return res.status(201).json({ message });
+  } catch (err) {
+    console.error('Registration error:', err);
+    return res.status(500).json({
+      message: 'An unexpected server error occurred during registration. Please try again.',
+    });
+  }
+});
+
 export default router;
+
